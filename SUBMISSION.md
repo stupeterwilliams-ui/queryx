@@ -35,19 +35,31 @@ A fully production-ready, agent-native web search API built with the Lucid Agent
 
 The API exposes both **Lucid Agents entrypoints** (for agent-native x402 payment flow) and **conventional REST routes** (`/v1/search`, `/v1/search/news`, `/v1/search/deep`) for compatibility with regular HTTP clients.
 
+### x402 Payment Flow
+- Paid entrypoints are registered in `.well-known/agent.json` with `pricing.invoke` values
+- `search` + `search-news`: 1000 μUSDC = $0.001 per query
+- `search-deep`: 5000 μUSDC = $0.005 per query
+- Payment via Base Mainnet USDC, facilitator: `https://facilitator.daydreams.systems`
+- Payee: `0xb4fB601cA06c033E79ED13af39366EE341E0b979`
+
+### Deep Research
 The deep search runs multiple Brave Search queries sequentially (with 1.1s gaps to respect the 1 req/sec rate limit), deduplicates results by URL, then synthesizes with structured key findings output.
 
-Payments are enabled on all search entrypoints via x402 (`ENABLE_PAYMENTS=true`). The REST routes bypass x402 for direct access but the agent entrypoints at `/.well-known/agent.json`-registered paths require payment.
+### AI Synthesis
+All endpoints use GPT-4o-mini via OpenRouter for fast, cheap synthesis. Deep mode uses a structured format with `[SYNTHESIS]` and `[KEY_FINDINGS]` sections for reliable parsing.
 
-## Test Results
+## Verified Live Endpoints
 
 ```bash
 # Health check
 curl https://queryx-production.up.railway.app/health
-# {"ok":true,"version":"1.0.0","service":"queryx"}
+# {"status":"ok","version":"1.0.0","service":"queryx"}
+
+# Agent manifest (shows x402 payment config + all entrypoints)
+curl https://queryx-production.up.railway.app/.well-known/agent.json
 
 # Web search
-curl "https://queryx-production.up.railway.app/v1/search?q=hello+world"
+curl "https://queryx-production.up.railway.app/v1/search?q=typescript+programming"
 # Returns: {query, results:[10 items], synthesis, sources, searchedAt, durationMs, model}
 
 # News search
@@ -58,7 +70,7 @@ curl "https://queryx-production.up.railway.app/v1/search/news?q=bitcoin+price+to
 curl -X POST "https://queryx-production.up.railway.app/v1/search/deep" \
   -H "Content-Type: application/json" \
   -d '{"q": "impact of AI on software jobs 2025"}'
-# Returns: {query, results:[15 items], synthesis, keyFindings:[7 bullets], depth:"deep", durationMs:12430, ...}
+# Returns: {query, results:[14 items], synthesis, keyFindings:[7 bullets], depth:"deep", durationMs:16332, ...}
 ```
 
 ## Example Response — Web Search
@@ -76,8 +88,8 @@ curl -X POST "https://queryx-production.up.railway.app/v1/search/deep" \
   ],
   "synthesis": "The phrase 'Hello, World!' refers to a simple program commonly used in computer programming...",
   "sources": ["https://en.wikipedia.org/wiki/..."],
-  "searchedAt": "2026-03-04T16:40:55.574Z",
-  "durationMs": 2684,
+  "searchedAt": "2026-03-04T16:46:14.964Z",
+  "durationMs": 1542,
   "model": "openai/gpt-4o-mini"
 }
 ```
@@ -93,13 +105,26 @@ curl -X POST "https://queryx-production.up.railway.app/v1/search/deep" \
 | AI synthesis     | ✅ | ✅ | ✅ |
 | Deep research    | ✅ | ✅ | ✅ |
 
-## Differentiators vs Existing Submission
+## Differentiators vs Existing Submissions
 
-1. **Production-deployed and live** — fully operational Railway deployment
-2. **All 3 endpoint tiers working** — `/v1/search`, `/v1/search/news`, `/v1/search/deep`
-3. **Real AI synthesis** — OpenRouter/GPT-4o-mini synthesizes results with citations
-4. **x402 payments integrated** — Base Mainnet USDC via Lucid Agents SDK
-5. **Agent manifest** — `.well-known/agent.json` for agent discovery
-6. **Rate-limit aware deep search** — sequential queries with 1.1s gaps
-7. **Zod v4 validation** throughout
-8. **Tests included** — health + error case tests
+1. **Production-deployed and live** — fully operational Railway deployment at queryx-production.up.railway.app
+2. **All 3 endpoint tiers working** — `/v1/search`, `/v1/search/news`, `/v1/search/deep` all returning real results
+3. **Real AI synthesis** — OpenRouter/GPT-4o-mini synthesizes results with numbered citations
+4. **x402 payments integrated** — Base Mainnet USDC via Lucid Agents SDK, pricing declared in agent manifest
+5. **Agent manifest** — `.well-known/agent.json` with full entrypoint specs, input/output schemas, and payment metadata
+6. **Rate-limit aware deep search** — sequential queries with 1.1s gaps, URL deduplication
+7. **Comprehensive tests** — 13 tests covering health, manifest, input validation, response schemas, x402 metadata
+8. **Zod v4 validation** throughout all inputs
+9. **Full source on GitHub** — https://github.com/stupeterwilliams-ui/queryx
+10. **`.env.example`** with all required env vars documented
+
+## Test Coverage (13 tests)
+
+- Health endpoint: status, service, version fields
+- Agent manifest: valid JSON, correct skills, x402 payment metadata
+- Pricing: correct μUSDC amounts on all paid entrypoints
+- Input validation: 422 on missing q, 400 on invalid JSON body
+- Response schemas: all required fields present on real search results
+- newsCount field on news endpoint
+- keyFindings array + depth:"deep" on deep search
+- ISO 8601 timestamp validation
