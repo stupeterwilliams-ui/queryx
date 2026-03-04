@@ -231,10 +231,16 @@ export async function deepSearch(
         `${query} analysis`,
       ];
 
-  // Run all queries in parallel
-  const allResultsArrays = await Promise.all(
-    queries.map((q) => braveSearch(q, { count: 8 }))
-  );
+  // Run queries sequentially to respect Brave's 1 req/sec rate limit
+  const allResultsArrays: SearchResult[][] = [];
+  for (const subQ of queries) {
+    const results = await braveSearch(subQ, { count: 8 });
+    allResultsArrays.push(results);
+    // Respect rate limit: 1 req/sec on free plan
+    if (queries.indexOf(subQ) < queries.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    }
+  }
 
   // Deduplicate by URL
   const seen = new Set<string>();
