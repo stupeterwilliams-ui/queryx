@@ -121,10 +121,19 @@ addEntrypoint({
   },
 });
 
-// ─── Custom REST routes matching spec ─────────────────────────────────────────
+// ─── Custom REST routes ────────────────────────────────────────────────────────
+// GET /health (override framework default to return full status object)
 // GET /v1/search?q=...
 // GET /v1/search/news?q=...
 // POST /v1/search/deep  { "q": "...", "subQueries": [...] }
+
+app.get("/health", (c) => {
+  return c.json({
+    status: "ok",
+    version: process.env.AGENT_VERSION ?? "1.0.0",
+    service: "queryx",
+  });
+});
 
 app.get("/v1/search", async (c) => {
   const q = c.req.query("q");
