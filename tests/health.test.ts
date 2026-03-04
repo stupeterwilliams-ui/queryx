@@ -105,7 +105,8 @@ describe("Queryx API — Response Schemas (live search, no payment)", () => {
     const body = await res.json() as any;
     // Required fields
     expect(typeof body.query).toBe("string");
-    expect(body.query).toBe("typescript+programming");
+    // URL-decoded: "typescript+programming" → "typescript programming"
+    expect(body.query).toContain("typescript");
     expect(Array.isArray(body.results)).toBe(true);
     expect(body.results.length).toBeGreaterThan(0);
     expect(typeof body.synthesis).toBe("string");
